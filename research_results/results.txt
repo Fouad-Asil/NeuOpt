@@ -1,0 +1,59 @@
+==================================================
+COMPREHENSIVE COMPARISON RESULTS
+==================================================
+
+Original ABC:
+Average tour cost: 2.760553 ± 0.576630
+Average time: 58.29 seconds
+Best tour cost: 2.035681
+Average time to best solution: 26.93 seconds
+Average convergence rate: 3.134025
+Average iterations to last improvement: 46.20
+
+NeuOpt-enhanced ABC:
+Average tour cost: 1.728913 ± 0.398942
+Average time: 32.92 seconds
+Best tour cost: 1.260193
+Average time to best solution: 25.07 seconds
+Average convergence rate: 4.127370
+Average iterations to last improvement: 76.20
+
+Average cost improvement: 37.37%
+Average time to best solution improvement: 6.90%
+Statistical significance: p-value = 0.010785, effect size = 1.7891
+
+Instance details:
+Instance 1:
+  Original ABC: cost=3.423489, time=58.17s, time to best=18.03s, last improvement=31 iter
+  NeuOpt ABC: cost=1.505103, time=32.92s, time to best=26.00s, last improvement=79 iter
+  Improvement: 56.04%
+
+Instance 2:
+  Original ABC: cost=3.379242, time=58.56s, time to best=21.08s, last improvement=36 iter
+  NeuOpt ABC: cost=2.424584, time=33.09s, time to best=15.88s, last improvement=48 iter
+  Improvement: 28.25%
+
+Instance 3:
+  Original ABC: cost=2.035681, time=58.23s, time to best=37.27s, last improvement=64 iter
+  NeuOpt ABC: cost=1.260193, time=32.92s, time to best=24.36s, last improvement=74 iter
+  Improvement: 38.09%
+
+Instance 4:
+  Original ABC: cost=2.199490, time=58.17s, time to best=20.36s, last improvement=35 iter
+  NeuOpt ABC: cost=1.582389, time=32.75s, time to best=26.20s, last improvement=80 iter
+  Improvement: 28.06%
+
+Instance 5:
+  Original ABC: cost=2.764862, time=58.33s, time to best=37.91s, last improvement=65 iter
+  NeuOpt ABC: cost=1.872296, time=32.92s, time to best=32.92s, last improvement=100 iter
+  Improvement: 32.28%
+
+
+Correlation between instance features and improvement:
+instance_id    -0.648339
+area            0.456932
+avg_distance   -0.105735
+x_range        -0.047947
+y_range         0.488704
+improvement     1.000000
+

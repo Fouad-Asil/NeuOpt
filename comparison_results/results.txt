@@ -1,0 +1,42 @@
+==================================================
+COMPARISON RESULTS
+==================================================
+
+Original ABC:
+Average tour cost: 3.260904 ± 0.554027
+Average time: 17.54 seconds
+Best tour cost: 2.512093
+
+NeuOpt-enhanced ABC:
+Average tour cost: 2.207461 ± 0.377245
+Average time: 9.84 seconds
+Best tour cost: 1.682081
+
+Average improvement: 32.31%
+
+Instance details:
+Instance 1:
+  Original ABC: cost=3.423489, time=17.59s
+  NeuOpt ABC: cost=2.413355, time=10.01s
+  Improvement: 29.51%
+
+Instance 2:
+  Original ABC: cost=4.198290, time=17.72s
+  NeuOpt ABC: cost=1.682081, time=9.88s
+  Improvement: 59.93%
+
+Instance 3:
+  Original ABC: cost=2.512093, time=17.41s
+  NeuOpt ABC: cost=2.306187, time=9.73s
+  Improvement: 8.20%
+
+Instance 4:
+  Original ABC: cost=3.025208, time=17.44s
+  NeuOpt ABC: cost=1.894143, time=9.84s
+  Improvement: 37.39%
+
+Instance 5:
+  Original ABC: cost=3.145438, time=17.51s
+  NeuOpt ABC: cost=2.741538, time=9.76s
+  Improvement: 12.84%
+

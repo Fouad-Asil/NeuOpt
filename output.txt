@@ -1,0 +1,100 @@
+                              p
+ython run.py --eval_only --no_saving --no_tb --init_val_met random --val_size 1000 --val_batch_size 100 --k 4 --problem tsp --val_dataset datasets/tsp_20.pkl --graph 20 --val_m 1 --stall 10 --T_max 1000 --load_path pre-trained/tsp20.pt
+2025-04-10 12:47:02.515460: I tensorflow/core/platform/cpu_feature_guard.cc:182] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-04-10 12:47:03.327647: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+{'K_epochs': 3,
+ 'T_max': 1000,
+ 'T_train': 200,
+ 'actor_head_num': 4,
+ 'batch_size': 512,
+ 'checkpoint_epochs': 1,
+ 'critic_head_num': 4,
+ 'distributed': False,
+ 'dummy_rate': 0.5,
+ 'embedding_dim': 128,
+ 'epoch_end': 200,
+ 'epoch_size': 10240,
+ 'epoch_start': 0,
+ 'eps_clip': 0.1,
+ 'eval_only': True,
+ 'gamma': 0.999,
+ 'graph_size': 20,
+ 'hidden_dim': 128,
+ 'init_val_met': 'random',
+ 'k': 4,
+ 'load_path': 'pre-trained/tsp20.pt',
+ 'log_dir': 'logs',
+ 'log_step': 50,
+ 'lr_critic': 2e-05,
+ 'lr_decay': 0.985,
+ 'lr_model': 8e-05,
+ 'max_grad_norm': 0.05,
+ 'n_encode_layers': 3,
+ 'n_step': 4,
+ 'no_DDP': False,
+ 'no_cuda': False,
+ 'no_progress_bar': False,
+ 'no_saving': True,
+ 'no_tb': True,
+ 'normalization': 'layer',
+ 'output_dir': 'outputs',
+ 'problem': 'tsp',
+ 'record': False,
+ 'resume': None,
+ 'run_name': 'run_name_20250410T124704',
+ 'save_dir': None,
+ 'seed': 6666,
+ 'stall_limit': 10,
+ 'use_assert': False,
+ 'use_cuda': True,
+ 'v_range': 6.0,
+ 'val_batch_size': 100,
+ 'val_dataset': 'datasets/tsp_20.pkl',
+ 'val_m': 1,
+ 'val_size': 1000,
+ 'warm_up': 2,
+ 'wo_MDP': True,
+ 'wo_RNN': False,
+ 'wo_bonus': True,
+ 'wo_feature1': True,
+ 'wo_feature2': True,
+ 'wo_feature3': True,
+ 'wo_regular': True,
+ 'world_size': 1}
+TSP with 20 nodes. MAX 4-opt. Do assert: False
+simpleMDP:  True
+# params in Actor {'Total': 682628, 'Trainable': 682628}
+Distributed: False
+ [*] Loading data from pre-trained/tsp20.pt
+
+Validating...
+1000 instances initialized.
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+rollout: 100%|████████████████████| 1000/1000 [
+inference: 100%|████████████████████| 10/10 [04
+
+ ------------------------------------------------------------
+         Avg total reward:          6.605334   +- 0.037057  
+          Avg step reward:          0.006605   +- 0.002405  
+------------------------------------------------------------
+           Avg init cost:           10.434441  +- 0.039350  
+    Avg cost after T=500 steps:     4.006262   +- 0.013245  
+    Avg cost after T=1000 steps:    3.988863   +- 0.012207  
+------------------------------------------------------------
+  Avg best cost after T=500 steps:  3.829110   +- 0.009540  
+ Avg best cost after T=1000 steps:  3.829108   +- 0.009540  
+        Avg final best cost:        3.829108   +- 0.009540  
+------------------------------------------------------------
+           Avg used time:           0.250187s
+------------------------------------------------------------ 
+
+(tf-test-1) ubuntu@ubuntu:/media/ubuntu/SSD2/Github/NeuOpt$ 
