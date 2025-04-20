@@ -1,0 +1,69 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+{
+  "rules": [
+    {
+      "file": "paper.pdf",
+      "prompt": "This file contains the theoretical information about this research. The paper titled 'Learning to Search Feasible and Infeasible Regions of Routing Problems with Flexible Neural k-Opt' was published in NeurIPS 2023 (vol. 36). It introduces NeuOpt, a learning-to-search (L2S) solver for Vehicle Routing Problems (VRPs) that learns to perform flexible k-opt exchanges using novel techniques including: 1) Tailored Action Factorization (S-move, I-move, E-move), 2) Customized Recurrent Dual-Stream (RDS) decoder, 3) Guided Infeasible Region Exploration (GIRE), and 4) Dynamic Data Augmentation (D2A).",
+      "contextLevel": "full"
+    },
+    {
+      "file": "README.md",
+      "prompt": "The main README file provides an overview of the project, installation instructions, and usage examples. It contains commands for training and running inference on TSP and CVRP problems of different sizes.",
+      "contextLevel": "full"
+    },
+    {
+      "file": "run.py",
+      "prompt": "The main entry point for running training and inference. It handles command-line arguments, sets up the problem, initializes the agent, and executes the training or inference process.",
+      "contextLevel": "high"
+    },
+    {
+      "file": "options.py",
+      "prompt": "Contains all the command-line options and default parameters for configuring the neural networks, training process, and problem instances.",
+      "contextLevel": "high"
+    },
+    {
+      "file": "problems/problem_tsp.py",
+      "prompt": "Implementation of the Traveling Salesman Problem (TSP), including solution representation, cost calculation, and the k-opt operation.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "problems/problem_cvrp.py",
+      "prompt": "Implementation of the Capacitated Vehicle Routing Problem (CVRP), including solution representation, cost calculation, feasibility checking, and the k-opt operation.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "agent/ppo.py",
+      "prompt": "Implementation of the Proximal Policy Optimization (PPO) algorithm for reinforcement learning. It handles the training process, including rollout collection, policy updates, and critic learning.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "nets/actor_network.py",
+      "prompt": "Implementation of the actor network that selects actions (k-opt moves) based on the current solution state. It includes the Recurrent Dual-Stream (RDS) decoder architecture.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "nets/critic_network.py",
+      "prompt": "Implementation of the critic network that estimates value functions for reinforcement learning.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "nets/graph_layers.py",
+      "prompt": "Contains neural network layers and components for processing graph-structured data, including attention mechanisms and custom encoders.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "NeuOpt_Example.ipynb",
+      "prompt": "Jupyter notebook tutorial for using NeuOpt on routing problems.",
+      "contextLevel": "medium"
+    },
+    {
+      "file": "GIRE_Example.ipynb",
+      "prompt": "Jupyter notebook tutorial for using the GIRE (Guided Infeasible Region Exploration) technique.",
+      "contextLevel": "medium"
+    }
+  ]
+} 

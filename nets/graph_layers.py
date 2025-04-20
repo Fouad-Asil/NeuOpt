@@ -438,9 +438,29 @@ class kopt_Decoder(nn.Module):
               # Store and Process actions
               next_of_new_action = rec.gather(1, action)
               action_index[:,i] = action.squeeze().clone()
-              k_action_left[stopped,i] = action[stopped].squeeze().clone()
-              k_action_right[~stopped, i-1] = action[~stopped].squeeze().clone()
-              k_action_left[:,i+1] = next_of_new_action.squeeze().clone()
+
+              # Conditionally update k_action_left and k_action_right for stopped items
+              if bs == 1:
+                  if stopped.item(): # Only index if the single batch item is stopped
+                      action_index_for_stopped = action[stopped].item() # Get the scalar action index
+                      # Ensure the index is within bounds for the mask's second dimension
+                      if 0 <= action_index_for_stopped < mask.shape[1]:
+                          mask[0, action_index_for_stopped] = False
+              else: # bs > 1
+                  if stopped.any(): # Only index if at least one item is stopped
+                      action_indices_for_stopped = action[stopped].squeeze(-1) # Get indices for stopped items
+                      # Ensure indices are valid before using them
+                      valid_indices_mask = (0 <= action_indices_for_stopped) & (action_indices_for_stopped < mask.shape[1])
+                      # Get row indices corresponding to the stopped items
+                      # Note: Ensure stopped has the same length as the first dimension of action/mask
+                      rows_to_update_mask = stopped & valid_indices_mask.view_as(stopped) # Combine stopped mask and valid index mask
+                      if rows_to_update_mask.any():
+                          rows_to_update = rows_to_update_mask.nonzero(as_tuple=True)[0]
+                          cols_to_update = action_indices_for_stopped[valid_indices_mask]
+                          mask[rows_to_update, cols_to_update] = False
+
+              # This line seems independent of the above conditional logic
+              k_action_left[:,i+1] = next_of_new_action.view(-1).clone()
               
               # Prepare next RNN input
               input_q1 = h.gather(1, action.view(bs,1,1).expand(bs,1,self.embed_dim)).squeeze(1)
@@ -455,9 +475,6 @@ class kopt_Decoder(nn.Module):
                   stopped = (action == next_of_last_action).squeeze()
               # assert (input_q1[stopped] == input_q2[stopped]).all()          
               
-              k_action_left[stopped, i] = k_action_left[stopped, i-1]
-              k_action_right[stopped, i] = k_action_right[stopped, i-1]
-              
               # Calc next basic masks
               if i == 0: 
                   visited_time_tag = (visited_time - visited_time.gather(1, action)) % gs
@@ -465,7 +482,27 @@ class kopt_Decoder(nn.Module):
               mask[(visited_time_tag <= visited_time_tag.gather(1, action))] = True
               if i == 0:
                   mask[visited_time_tag > (gs - 2) ] = True
-              mask[stopped, action[stopped].squeeze()] = False # allow next k-opt starts immediately
+
+              # Update mask for stopped items, allowing next k-opt to start immediately
+              if bs == 1:
+                  if stopped.item(): # Only index if the single batch item is stopped
+                      action_index_for_stopped = action[stopped].item() # Get the scalar action index
+                      # Ensure the index is within bounds for the mask's second dimension
+                      if 0 <= action_index_for_stopped < mask.shape[1]:
+                          mask[0, action_index_for_stopped] = False
+              else: # bs > 1
+                  if stopped.any(): # Only index if at least one item is stopped
+                      action_indices_for_stopped = action[stopped].squeeze(-1) # Get indices for stopped items
+                      # Ensure indices are valid before using them
+                      valid_indices_mask = (0 <= action_indices_for_stopped) & (action_indices_for_stopped < mask.shape[1])
+                      # Get row indices corresponding to the stopped items
+                      # Note: Ensure stopped has the same length as the first dimension of action/mask
+                      rows_to_update_mask = stopped & valid_indices_mask.view_as(stopped) # Combine stopped mask and valid index mask
+                      if rows_to_update_mask.any():
+                          rows_to_update = rows_to_update_mask.nonzero(as_tuple=True)[0]
+                          cols_to_update = action_indices_for_stopped[valid_indices_mask]
+                          mask[rows_to_update, cols_to_update] = False
+
               # if True:#i == problem.k_max - 2: # allow special case: close k-opt at the first selected node
               index_allow_first_node = (~stopped) & (next_of_new_action.squeeze() == action_index[:,0])
               mask[index_allow_first_node, action_index[index_allow_first_node,0]] = False
@@ -475,8 +512,15 @@ class kopt_Decoder(nn.Module):
               next_of_last_action[stopped] = -1
               
           # Form final action
-          k_action_right[~stopped,-1] = k_action_left[~stopped,-1].clone()
-          k_action_left = k_action_left[:, :problem.k_max]
+          if (~stopped).any(): # Only perform assignment if there are non-stopped items
+              # Explicitly get row indices to update
+              rows_to_update = (~stopped).nonzero(as_tuple=True)[0]
+              if rows_to_update.numel() > 0:
+                  # Assign last element of k_action_left to last element of k_action_right for these rows
+                  values_to_assign = k_action_left[rows_to_update, -1].clone()
+                  k_action_right[rows_to_update, -1] = values_to_assign
+
+          k_action_left = k_action_left[:, :problem.k_max] # Slice k_action_left
           action_all = torch.cat((action_index, k_action_left, k_action_right), -1)
           
           return action_all, ll, torch.stack(entropys).mean(0) if require_entropy and self.training else None
