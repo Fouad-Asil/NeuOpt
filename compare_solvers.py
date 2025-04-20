@@ -58,6 +58,13 @@ def parse_arguments():
     parser.add_argument('--local_search_steps', type=int, default=20, help='Number of NeuOpt steps per solution in Hybrid ACO')
     parser.add_argument('--neuopt_steps', type=int, default=1000, help='Number of steps for standalone NeuOpt run (approx equiv. to Hybrid)') # aco_iterations * local_search_steps
 
+    # --- Optimization Parameters ---
+    parser.add_argument('--elite_percentage', type=float, default=0.25, help='Percentage of solutions to apply local search to')
+    parser.add_argument('--early_stop_threshold', type=int, default=5, help='Stop local search after N non-improving steps')
+    parser.add_argument('--adaptive_search', action='store_true', default=True, help='Increase search depth as iterations progress')
+    parser.add_argument('--parallel_processing', action='store_true', default=True, help='Use parallel processing for local search')
+    parser.add_argument('--progressive_elite', action='store_true', default=True, help='Gradually increase elite percentage')
+
     # --- Solver Selection ---
     parser.add_argument('--run_hybrid', action='store_true', default=True, help='Run Hybrid ACO-NeuOpt')
     parser.add_argument('--run_standard_aco', action='store_true', default=True, help='Run Standard ACO')
@@ -663,6 +670,11 @@ def main(args, opts):
                     beta=args.beta,
                     q0=args.q0,
                     local_search_steps=args.local_search_steps,
+                    elite_percentage=args.elite_percentage,
+                    early_stop_threshold=args.early_stop_threshold,
+                    adaptive_search=args.adaptive_search,
+                    parallel_processing=args.parallel_processing,
+                    progressive_elite=args.progressive_elite,
                     device=device
                 )
                 # Run Hybrid ACO-NeuOpt (HybridACO doesn't return time currently, so track it manually)

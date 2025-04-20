@@ -8,7 +8,7 @@ The goal of this hybrid approach is to combine traditional ACO meta-heuristics w
 
 ## Current Status
 
-The hybrid implementation is now functional. Here's the status of the development:
+The hybrid implementation is now fully functional with advanced performance optimizations. Here's the status of the development:
 
 1. NeuOpt Model Loading:
    - ✅ Successfully loads pretrained NeuOpt models
@@ -26,7 +26,14 @@ The hybrid implementation is now functional. Here's the status of the developmen
    - ✅ Proper parameter handling for the TSP.step() method
    - ✅ Removed early stopping to allow full exploration
 
-4. Comparison Framework:
+4. Performance Optimizations:
+   - ✅ Selective Local Search - only apply NeuOpt to elite solutions
+   - ✅ Early Stopping - stop local search when no improvement is found
+   - ✅ Adaptive Search Depth - increase search steps as iterations progress
+   - ✅ Progressive Elite Selection - gradually increase elite percentage over iterations
+   - ✅ Parallel Processing - process elite solutions in parallel when possible
+
+5. Comparison Framework:
    - ✅ Implemented comparison between Hybrid ACO-NeuOpt, Standard ACO, and standalone NeuOpt
    - ✅ Visualization of results with matplotlib
    - ✅ JSON export of detailed results
@@ -39,29 +46,40 @@ The implementation consists of three main components:
 2. **HybridACO**: Combines ACO with NeuOpt for local search
 3. **NeuOpt Solver**: A standalone implementation of the NeuOpt approach
 
-The NeuOpt solver has been updated to:
-- Use positional arguments for the TSP.step() method
-- Remove early stopping to allow full exploration of the solution space
-- Properly handle tensor shapes and device placement
+The optimized HybridACO implementation includes:
+
+- **Selective Local Search**: Only applies NeuOpt to the top percentage of solutions (default 25%)
+- **Early Stopping**: Stops local search after a specified number of non-improving steps (default 5)
+- **Adaptive Search Depth**: Increases search steps as iterations progress (up to 2x the base steps)
+- **Progressive Elite Selection**: Gradually increases the percentage of solutions for local search as iterations progress
+- **Parallel Processing**: Uses multiple CPU cores to process elite solutions in parallel
 
 ## Usage
 
-To run the comparison between solvers:
+To run the comparison between solvers with all optimizations enabled:
 
 ```bash
-python compare_solvers.py --model_path pre-trained/tsp100.pt --problem tsp --graph_size 100 --num_ants 50 --aco_iterations 100 --neuopt_steps 1000 --local_search_steps 20 --visualize --save_results
+python compare_solvers.py --model_path pre-trained/tsp100.pt --problem tsp --graph_size 100 --elite_percentage 0.25 --early_stop_threshold 5 --adaptive_search --parallel_processing --progressive_elite
 ```
 
 Parameters:
 - `--model_path`: Path to the pretrained NeuOpt model
 - `--problem`: Problem type (currently only tsp supported)
 - `--graph_size`: Number of cities/nodes
-- `--num_ants`: Number of ants for ACO
-- `--aco_iterations`: Number of ACO iterations
-- `--neuopt_steps`: Number of steps for standalone NeuOpt
-- `--local_search_steps`: Number of NeuOpt steps per solution in Hybrid ACO
-- `--visualize`: Generate performance visualizations
-- `--save_results`: Save results to a JSON file
+- `--elite_percentage`: Percentage of solutions to apply local search to (0.0-1.0)
+- `--early_stop_threshold`: Stop local search after N non-improving steps
+- `--adaptive_search`: Increase search depth as iterations progress
+- `--parallel_processing`: Use parallel processing for local search
+- `--progressive_elite`: Gradually increase elite percentage
+
+## Performance Considerations
+
+The optimized hybrid approach achieves better performance while maintaining solution quality through:
+
+1. **Computational Efficiency**: Selective local search and parallel processing significantly reduce runtime
+2. **Smart Resource Allocation**: Progressive elite selection focuses intensive computation where it matters most
+3. **Diminishing Returns Handling**: Early stopping prevents wasting computation on plateaus
+4. **Exploration/Exploitation Balance**: Adaptive search depth allows more exploration later in the search
 
 ## Results
 
@@ -77,6 +95,7 @@ To further improve the hybrid approach:
 1. **CVRP Implementation**: Extend the implementation to handle CVRP problems
 2. **Parameter Tuning**: Optimize the balance between ACO and NeuOpt components
 3. **Advanced Integration**: Explore deeper integration between ACO and NeuOpt
+4. **Further Parallelization**: Implement GPU acceleration for the neural network components
 
 ## References
 

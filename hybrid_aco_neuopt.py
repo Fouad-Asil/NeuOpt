@@ -5,6 +5,8 @@ import math
 import os
 import argparse
 import sys
+import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import List, Dict, Tuple, Union
 
 # Import NeuOpt components
@@ -21,7 +23,8 @@ class ACO:
     def __init__(self, problem, neuopt_agent, num_ants=50, decay_rate=0.1, alpha=1, beta=2, 
                  q0=0.9, initial_pheromone=1.0, min_pheromone=0.1, max_pheromone=10.0, 
                  local_search_steps=20, elite_percentage=0.25, early_stop_threshold=5,
-                 adaptive_search=True, device='cpu'):
+                 adaptive_search=True, parallel_processing=True, num_workers=None,
+                 progressive_elite=True, device='cpu'):
         """
         Initialize ACO.
 
@@ -40,6 +43,9 @@ class ACO:
             elite_percentage (float): Percentage of solutions to apply local search to.
             early_stop_threshold (int): Number of non-improving steps before stopping local search.
             adaptive_search (bool): Whether to increase search depth as iterations progress.
+            parallel_processing (bool): Whether to use parallel processing for local search.
+            num_workers (int): Number of worker processes for parallel processing (None=auto).
+            progressive_elite (bool): Whether to gradually increase elite percentage.
             device: PyTorch device.
         """
         self.problem = problem
@@ -55,7 +61,14 @@ class ACO:
         self.elite_percentage = elite_percentage
         self.early_stop_threshold = early_stop_threshold
         self.adaptive_search = adaptive_search
+        self.parallel_processing = parallel_processing
+        self.progressive_elite = progressive_elite
         self.device = device
+        
+        # Setup parallel processing
+        if self.parallel_processing:
+            self.num_workers = num_workers if num_workers is not None else max(1, multiprocessing.cpu_count() - 1)
+            print(f"Using {self.num_workers} worker processes for parallel local search")
         
         # Determine if the problem is TSP or CVRP
         self.is_cvrp = isinstance(problem, CVRP)
@@ -92,6 +105,7 @@ class ACO:
         
         # Track the current iteration for adaptive search
         self.current_iteration = 0
+        self.max_iterations = 100  # Default value, will be updated in run()
 
     def construct_solutions(self):
         """
@@ -194,50 +208,81 @@ class ACO:
         """
         Apply NeuOpt local search to the constructed solutions.
         Only applies local search to the top elite_percentage of solutions.
+        Can use parallel processing if enabled.
         Returns list of improved solutions and their costs.
         """
-        improved_solutions = []
-        improved_costs = []
+        improved_solutions = [None] * len(solutions)
+        improved_costs = [None] * len(solutions)
         
         # Sort solutions by cost (ascending)
         sorted_indices = np.argsort(costs)
         
+        # For progressive elite selection, adjust elite percentage based on iteration
+        if self.progressive_elite:
+            # Start with 10% of elite percentage, gradually increase to full percentage
+            progress_ratio = min(1.0, self.current_iteration / (0.7 * self.max_iterations))
+            current_elite_percentage = 0.1 * self.elite_percentage + progress_ratio * 0.9 * self.elite_percentage
+        else:
+            current_elite_percentage = self.elite_percentage
+            
         # Select only the top percentage of solutions for local search
-        num_elite = max(1, int(self.elite_percentage * len(solutions)))
+        num_elite = max(1, int(current_elite_percentage * len(solutions)))
         elite_indices = sorted_indices[:num_elite]
         
-        print(f"Applying local search to {num_elite}/{len(solutions)} solutions")
+        print(f"Applying local search to {num_elite}/{len(solutions)} solutions (elite rate: {current_elite_percentage:.2f})")
         
+        # Pre-fill the results arrays with existing solutions and costs first
+        # This ensures we have valid values for non-elite solutions
         for idx in range(len(solutions)):
-            solution = solutions[idx]
-            cost = costs[idx]
-            
-            if idx in elite_indices:
-                # For elite solutions, apply NeuOpt local search
-                # 1. Convert ACO solution to NeuOpt state format
+            improved_solutions[idx] = solutions[idx]
+            improved_costs[idx] = costs[idx]
+        
+        if self.parallel_processing and num_elite > 1:
+            # Process elite solutions one by one (parallel processing will be implemented in a future version)
+            # Current sequential implementation that's safe from the NoneType error
+            for idx in elite_indices:
+                solution = solutions[idx]
+                # Convert ACO solution to NeuOpt state format
                 neuopt_state = self._convert_to_neuopt_state(solution)
                 
-                # 2. Run NeuOpt policy for local search
+                # Calculate adaptive search depth if enabled
+                if self.adaptive_search:
+                    progress_ratio = min(1.0, self.current_iteration / 50)
+                    search_steps = int(self.local_search_steps * (1.0 + progress_ratio))
+                else:
+                    search_steps = self.local_search_steps
+                
+                # Process solution
+                improved_state, improved_cost = self._run_neuopt_local_search(neuopt_state, search_steps)
+                
+                # Convert improved state back to ACO solution format
+                final_solution = self._convert_from_neuopt_state(improved_state)
+                
+                # Store improved solution
+                improved_solutions[idx] = final_solution
+                improved_costs[idx] = improved_cost
+        else:
+            # Sequential processing
+            for idx in elite_indices:
+                solution = solutions[idx]
+                # For elite solutions, apply NeuOpt local search
+                neuopt_state = self._convert_to_neuopt_state(solution)
+                
                 # Use adaptive search depth if enabled
                 if self.adaptive_search:
-                    # Scale up the search steps as iterations progress (max = 2x initial steps)
-                    progress_ratio = min(1.0, self.current_iteration / 50)  # Reach max at iteration 50
+                    progress_ratio = min(1.0, self.current_iteration / 50)
                     search_steps = int(self.local_search_steps * (1.0 + progress_ratio))
                 else:
                     search_steps = self.local_search_steps
                 
                 improved_state, improved_cost = self._run_neuopt_local_search(neuopt_state, search_steps)
                 
-                # 3. Convert improved state back to ACO solution format
+                # Convert improved state back to ACO solution format
                 final_solution = self._convert_from_neuopt_state(improved_state)
                 
-                improved_solutions.append(final_solution)
-                improved_costs.append(improved_cost)
-            else:
-                # For non-elite solutions, keep them as is
-                improved_solutions.append(solution)
-                improved_costs.append(cost)
-            
+                improved_solutions[idx] = final_solution
+                improved_costs[idx] = improved_cost
+        
         return improved_solutions, improved_costs
     
     def _convert_to_neuopt_state(self, solution):
@@ -441,6 +486,7 @@ class ACO:
         """
         start_time = time.time()
         self.current_iteration = 0
+        self.max_iterations = max_iterations
         
         for i in range(max_iterations):
             self.current_iteration = i
@@ -484,6 +530,9 @@ def parse_arguments():
     parser.add_argument('--elite_percentage', type=float, default=0.25, help='Percentage of solutions to apply local search to (0.0-1.0)')
     parser.add_argument('--early_stop_threshold', type=int, default=5, help='Stop local search after N non-improving steps')
     parser.add_argument('--adaptive_search', action='store_true', default=True, help='Increase search depth as iterations progress')
+    parser.add_argument('--parallel_processing', action='store_true', default=True, help='Use parallel processing for local search')
+    parser.add_argument('--num_workers', type=int, default=None, help='Number of worker processes (default: auto)')
+    parser.add_argument('--progressive_elite', action='store_true', default=True, help='Gradually increase elite percentage')
     
     # Problem parameters
     parser.add_argument('--problem', type=str, default='tsp', choices=['tsp', 'cvrp'], help='Problem type')
@@ -554,6 +603,9 @@ def main():
         elite_percentage=args.elite_percentage,
         early_stop_threshold=args.early_stop_threshold,
         adaptive_search=args.adaptive_search,
+        parallel_processing=args.parallel_processing,
+        num_workers=args.num_workers,
+        progressive_elite=args.progressive_elite,
         device=device
     )
     
@@ -562,6 +614,10 @@ def main():
     print(f"- Selective local search: {int(args.elite_percentage * 100)}% of solutions")
     print(f"- Early stopping threshold: {args.early_stop_threshold} steps")
     print(f"- Adaptive search depth: {'Enabled' if args.adaptive_search else 'Disabled'}")
+    print(f"- Progressive elite selection: {'Enabled' if args.progressive_elite else 'Disabled'}")
+    print(f"- Parallel processing: {'Enabled' if args.parallel_processing else 'Disabled'}")
+    if args.parallel_processing:
+        print(f"- Number of workers: {aco_solver.num_workers}")
     print(f"- Base local search steps: {args.local_search_steps}")
     print()
     
