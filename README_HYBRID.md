@@ -8,12 +8,13 @@ The goal of this hybrid approach is to combine traditional ACO meta-heuristics w
 
 ## Current Status
 
-The hybrid implementation is currently a work in progress. Here's the status of the development:
+The hybrid implementation is now functional. Here's the status of the development:
 
 1. NeuOpt Model Loading:
    - ✅ Successfully loads pretrained NeuOpt models
    - ✅ Can generate initial solutions for TSP
    - ✅ Can evaluate solution costs
+   - ✅ Can apply NeuOpt local search to improve solutions
    
 2. Basic ACO Implementation:
    - ✅ Pheromone trail initialization
@@ -21,47 +22,61 @@ The hybrid implementation is currently a work in progress. Here's the status of 
    - ✅ Pheromone update mechanisms
    
 3. Integration with NeuOpt:
-   - ❌ Not fully functional yet
-   - ⚠️ Encounters issues with the NeuOpt actor.forward method
-   - ⚠️ Likely issues with tensor shapes or indexing in the Decoder
+   - ✅ Functional integration with NeuOpt for local search
+   - ✅ Proper parameter handling for the TSP.step() method
+   - ✅ Removed early stopping to allow full exploration
 
-## Implementation Challenges
+4. Comparison Framework:
+   - ✅ Implemented comparison between Hybrid ACO-NeuOpt, Standard ACO, and standalone NeuOpt
+   - ✅ Visualization of results with matplotlib
+   - ✅ JSON export of detailed results
 
-The main challenges encountered are:
+## Implementation Details
 
-1. **NeuOpt Internal Structure**: The NeuOpt model's internal forward pass has specific expectations about tensor shapes and integration that are difficult to manage in a hybrid setting.
+The implementation consists of three main components:
 
-2. **Decoder Implementation**: The neural k-opt decoder in NeuOpt expects specific tensor formats that make integration difficult.
+1. **StandardACO**: A traditional ACO implementation for TSP
+2. **HybridACO**: Combines ACO with NeuOpt for local search
+3. **NeuOpt Solver**: A standalone implementation of the NeuOpt approach
 
-3. **Parameter Management**: There are differences in how the TSP and CVRP problems are implemented, requiring special handling for each problem type.
-
-## Next Steps
-
-To continue development of the hybrid approach:
-
-1. **Use Higher-Level API**: Instead of trying to directly call the actor.forward method, it might be better to use the agent's rollout method for improved solutions.
-
-2. **Simple Prototype**: Focus first on a simplified hybrid where ACO generates initial solutions and NeuOpt attempts to improve them without deep integration.
-
-3. **CVRP Implementation**: Once TSP is working, extend the implementation to handle CVRP problems.
-
-## Testing
-
-A simple testing script `test_neuopt_load.py` has been created to verify that NeuOpt models can be loaded and used to evaluate solutions. This provides a foundation for further development.
+The NeuOpt solver has been updated to:
+- Use positional arguments for the TSP.step() method
+- Remove early stopping to allow full exploration of the solution space
+- Properly handle tensor shapes and device placement
 
 ## Usage
 
-To test the NeuOpt model loading and basic functionality:
+To run the comparison between solvers:
 
 ```bash
-python test_neuopt_load.py
+python compare_solvers.py --model_path pre-trained/tsp100.pt --problem tsp --graph_size 100 --num_ants 50 --aco_iterations 100 --neuopt_steps 1000 --local_search_steps 20 --visualize --save_results
 ```
 
-For future development, the goal is to have a command like:
+Parameters:
+- `--model_path`: Path to the pretrained NeuOpt model
+- `--problem`: Problem type (currently only tsp supported)
+- `--graph_size`: Number of cities/nodes
+- `--num_ants`: Number of ants for ACO
+- `--aco_iterations`: Number of ACO iterations
+- `--neuopt_steps`: Number of steps for standalone NeuOpt
+- `--local_search_steps`: Number of NeuOpt steps per solution in Hybrid ACO
+- `--visualize`: Generate performance visualizations
+- `--save_results`: Save results to a JSON file
 
-```bash
-python hybrid_aco_neuopt.py --model_path pre-trained/tsp100.pt --problem tsp --graph_size 100 --num_ants 50 --max_iterations 100
-```
+## Results
+
+The comparison script generates:
+1. A summary table showing average costs, best costs, and computation times
+2. Visualizations comparing the performance of the three approaches
+3. Detailed JSON results for further analysis
+
+## Next Steps
+
+To further improve the hybrid approach:
+
+1. **CVRP Implementation**: Extend the implementation to handle CVRP problems
+2. **Parameter Tuning**: Optimize the balance between ACO and NeuOpt components
+3. **Advanced Integration**: Explore deeper integration between ACO and NeuOpt
 
 ## References
 

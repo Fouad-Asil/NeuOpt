@@ -20,7 +20,8 @@ class ACO:
     """
     def __init__(self, problem, neuopt_agent, num_ants=50, decay_rate=0.1, alpha=1, beta=2, 
                  q0=0.9, initial_pheromone=1.0, min_pheromone=0.1, max_pheromone=10.0, 
-                 local_search_steps=20, device='cpu'):
+                 local_search_steps=20, elite_percentage=0.25, early_stop_threshold=5,
+                 adaptive_search=True, device='cpu'):
         """
         Initialize ACO.
 
@@ -35,7 +36,10 @@ class ACO:
             initial_pheromone (float): Initial pheromone value.
             min_pheromone (float): Minimum pheromone level (prevents stagnation).
             max_pheromone (float): Maximum pheromone level (prevents dominance).
-            local_search_steps (int): Number of steps to run NeuOpt local search.
+            local_search_steps (int): Maximum number of steps to run NeuOpt local search.
+            elite_percentage (float): Percentage of solutions to apply local search to.
+            early_stop_threshold (int): Number of non-improving steps before stopping local search.
+            adaptive_search (bool): Whether to increase search depth as iterations progress.
             device: PyTorch device.
         """
         self.problem = problem
@@ -48,6 +52,9 @@ class ACO:
         self.min_pheromone = min_pheromone
         self.max_pheromone = max_pheromone
         self.local_search_steps = local_search_steps
+        self.elite_percentage = elite_percentage
+        self.early_stop_threshold = early_stop_threshold
+        self.adaptive_search = adaptive_search
         self.device = device
         
         # Determine if the problem is TSP or CVRP
@@ -82,6 +89,9 @@ class ACO:
         
         self.best_solution = None
         self.best_cost = float('inf')
+        
+        # Track the current iteration for adaptive search
+        self.current_iteration = 0
 
     def construct_solutions(self):
         """
@@ -180,26 +190,53 @@ class ACO:
             selected_idx = np.random.choice(len(candidates), p=probabilities)
             return candidates[selected_idx]
 
-    def apply_local_search(self, solutions):
+    def apply_local_search(self, solutions, costs):
         """
         Apply NeuOpt local search to the constructed solutions.
+        Only applies local search to the top elite_percentage of solutions.
         Returns list of improved solutions and their costs.
         """
         improved_solutions = []
         improved_costs = []
         
-        for solution in solutions:
-            # 1. Convert ACO solution to NeuOpt state format
-            neuopt_state = self._convert_to_neuopt_state(solution)
+        # Sort solutions by cost (ascending)
+        sorted_indices = np.argsort(costs)
+        
+        # Select only the top percentage of solutions for local search
+        num_elite = max(1, int(self.elite_percentage * len(solutions)))
+        elite_indices = sorted_indices[:num_elite]
+        
+        print(f"Applying local search to {num_elite}/{len(solutions)} solutions")
+        
+        for idx in range(len(solutions)):
+            solution = solutions[idx]
+            cost = costs[idx]
             
-            # 2. Run NeuOpt policy for a fixed number of steps
-            improved_state, improved_cost = self._run_neuopt_local_search(neuopt_state)
-            
-            # 3. Convert improved state back to ACO solution format
-            final_solution = self._convert_from_neuopt_state(improved_state)
-            
-            improved_solutions.append(final_solution)
-            improved_costs.append(improved_cost)
+            if idx in elite_indices:
+                # For elite solutions, apply NeuOpt local search
+                # 1. Convert ACO solution to NeuOpt state format
+                neuopt_state = self._convert_to_neuopt_state(solution)
+                
+                # 2. Run NeuOpt policy for local search
+                # Use adaptive search depth if enabled
+                if self.adaptive_search:
+                    # Scale up the search steps as iterations progress (max = 2x initial steps)
+                    progress_ratio = min(1.0, self.current_iteration / 50)  # Reach max at iteration 50
+                    search_steps = int(self.local_search_steps * (1.0 + progress_ratio))
+                else:
+                    search_steps = self.local_search_steps
+                
+                improved_state, improved_cost = self._run_neuopt_local_search(neuopt_state, search_steps)
+                
+                # 3. Convert improved state back to ACO solution format
+                final_solution = self._convert_from_neuopt_state(improved_state)
+                
+                improved_solutions.append(final_solution)
+                improved_costs.append(improved_cost)
+            else:
+                # For non-elite solutions, keep them as is
+                improved_solutions.append(solution)
+                improved_costs.append(cost)
             
         return improved_solutions, improved_costs
     
@@ -250,9 +287,10 @@ class ACO:
         
         return state
     
-    def _run_neuopt_local_search(self, state):
+    def _run_neuopt_local_search(self, state, search_steps):
         """
         Run NeuOpt local search starting from the given state.
+        Implements early stopping when no improvement is found.
         Returns improved state and cost.
         """
         current_solution = state['solution']
@@ -263,10 +301,17 @@ class ACO:
         cost_tensor = torch.tensor([[current_cost, current_cost, current_cost]], device=self.device)
         
         # Initialize last_action
-        last_action = None 
+        last_action = None
+        
+        # Keep track of best solution so far
+        best_solution = current_solution.clone()
+        best_cost = current_cost
+        
+        # For early stopping
+        no_improvement_steps = 0
 
-        # Run NeuOpt for a fixed number of steps
-        for _ in range(self.local_search_steps):
+        # Run NeuOpt for a fixed number of steps or until early stopping
+        for step in range(search_steps):
             # Call the actor forward method with all required arguments
             # For TSP, context is None
             batch_feature = self.problem.input_feature_encoding(self.instance_batch)
@@ -297,7 +342,20 @@ class ACO:
             # Get actual cost
             next_cost = self.problem.get_costs(self.instance_batch, next_solution).item()
             
-            # Accept the new state if it's better
+            # Track early stopping
+            if next_cost < best_cost:
+                best_solution = next_solution.clone()
+                best_cost = next_cost
+                no_improvement_steps = 0
+            else:
+                no_improvement_steps += 1
+                
+            # Check early stopping condition
+            if no_improvement_steps >= self.early_stop_threshold:
+                # Early stopping - no improvement for several steps
+                break
+            
+            # Accept the new state if it's better than current (greedy acceptance)
             if next_cost < current_cost:
                 current_solution = next_solution
                 current_cost = next_cost
@@ -306,14 +364,15 @@ class ACO:
             # Update last_action for the next iteration
             last_action = action
                 
-        # Prepare the final state
+        # Use the best solution found during the search
+        # This could be different from the current solution if we didn't accept worse solutions
         final_state = {
-            'solution': current_solution,
+            'solution': best_solution,
             'problem': self.problem,
             'coordinates': self.instance_batch['coordinates']
         }
         
-        return final_state, current_cost
+        return final_state, best_cost
     
     def _convert_from_neuopt_state(self, state):
         """
@@ -381,13 +440,15 @@ class ACO:
         Run the main ACO loop integrated with NeuOpt local search.
         """
         start_time = time.time()
+        self.current_iteration = 0
         
         for i in range(max_iterations):
+            self.current_iteration = i
             # 1. Construct solutions using ants
             constructed_solutions, constructed_costs = self.construct_solutions()
             
             # 2. Apply NeuOpt local search
-            improved_solutions, improved_costs = self.apply_local_search(constructed_solutions)
+            improved_solutions, improved_costs = self.apply_local_search(constructed_solutions, constructed_costs)
             
             # 3. Update pheromones based on improved solutions
             self.update_pheromones(improved_solutions, improved_costs)
@@ -418,6 +479,11 @@ def parse_arguments():
     parser.add_argument('--q0', type=float, default=0.9, help='Exploration/exploitation balance parameter')
     parser.add_argument('--max_iterations', type=int, default=100, help='Maximum number of ACO iterations')
     parser.add_argument('--local_search_steps', type=int, default=20, help='Number of NeuOpt steps per solution')
+    
+    # Performance optimization parameters
+    parser.add_argument('--elite_percentage', type=float, default=0.25, help='Percentage of solutions to apply local search to (0.0-1.0)')
+    parser.add_argument('--early_stop_threshold', type=int, default=5, help='Stop local search after N non-improving steps')
+    parser.add_argument('--adaptive_search', action='store_true', default=True, help='Increase search depth as iterations progress')
     
     # Problem parameters
     parser.add_argument('--problem', type=str, default='tsp', choices=['tsp', 'cvrp'], help='Problem type')
@@ -485,8 +551,19 @@ def main():
         beta=args.beta,
         q0=args.q0,
         local_search_steps=args.local_search_steps,
+        elite_percentage=args.elite_percentage,
+        early_stop_threshold=args.early_stop_threshold,
+        adaptive_search=args.adaptive_search,
         device=device
     )
+    
+    # Print optimization settings
+    print("\nOptimization settings:")
+    print(f"- Selective local search: {int(args.elite_percentage * 100)}% of solutions")
+    print(f"- Early stopping threshold: {args.early_stop_threshold} steps")
+    print(f"- Adaptive search depth: {'Enabled' if args.adaptive_search else 'Disabled'}")
+    print(f"- Base local search steps: {args.local_search_steps}")
+    print()
     
     # Run ACO
     best_solution, best_cost = aco_solver.run(args.max_iterations)
@@ -497,12 +574,6 @@ def main():
     # output_dir = "results"
     # os.makedirs(output_dir, exist_ok=True)
     # output_file = os.path.join(output_dir, f"{args.problem}_{args.graph_size}_{time.strftime('%Y%m%d_%H%M%S')}.txt")
-    # with open(output_file, 'w') as f:
-    #     f.write(f"Problem: {args.problem}\n")
-    #     f.write(f"Size: {args.graph_size}\n")
-    #     f.write(f"Cost: {best_cost}\n")
-    #     f.write(f"Solution: {best_solution}\n")
-    # print(f"Solution saved to {output_file}")
 
 
 if __name__ == "__main__":
