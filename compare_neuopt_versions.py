@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import time
 import json
-from run import get_problem
+from run import load_problem
 from options import get_options
 from agent.ppo import PPO
 from utils import torch_load_cpu, get_inner_model, move_to
@@ -46,7 +46,16 @@ def run_benchmark(args, problem_size, num_instances, memory_enabled=True, datase
     args.graph_size = problem_size
     
     # Set up problem
-    problem = get_problem(args)
+    ProblemClass = load_problem(args.problem)
+    problem = ProblemClass(
+                p_size = args.graph_size,
+                init_val_met = args.init_val_met,
+                with_assert = args.use_assert,
+                DUMMY_RATE = args.dummy_rate,
+                k = args.k,
+                with_bonus = not args.wo_bonus,
+                with_regular = not args.wo_regular
+            )
     
     # Create/load dataset
     if dataset is None:
@@ -236,7 +245,16 @@ def main():
             neuopt_args.load_path = None
         
         # Generate dataset for consistent comparison
-        problem = get_problem(neuopt_args)
+        ProblemClass = load_problem(neuopt_args.problem)
+        problem = ProblemClass(
+                    p_size = size,
+                    init_val_met = neuopt_args.init_val_met,
+                    with_assert = neuopt_args.use_assert,
+                    DUMMY_RATE = neuopt_args.dummy_rate,
+                    k = neuopt_args.k,
+                    with_bonus = not neuopt_args.wo_bonus,
+                    with_regular = not neuopt_args.wo_regular
+                )
         dataset = problem.make_dataset(size=size, num_samples=benchmark_args.instances, 
                                        DUMMY_RATE=0.5 if benchmark_args.problem == 'cvrp' else 0.0)
         
