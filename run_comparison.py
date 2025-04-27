@@ -2,6 +2,7 @@
 """
 Main script to run the comparison between original NeuOpt and memory-augmented NeuOpt.
 This script orchestrates the entire evaluation process.
+python run_comparison.py --problem tsp --sizes 20 --instances 10 --eval_steps 50
 """
 import os
 import sys
